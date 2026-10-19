@@ -293,7 +293,7 @@ selected_zest_label = st.sidebar.selectbox("Wybierz zapisane zestawienie:", list
 selected_zest_id = zest_options[selected_zest_label]
 
 if selected_zest_id is not None:
-  if st.sidebar.button("🗑️ Usuń to zestawienie z bazy", type="primary"):
+  if st.sidebar.button("🗑️ Usuń to zestawienie z bazy", type="primary", width="stretch"):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM zestawienia WHERE id = ?", (selected_zest_id,))
@@ -377,4 +377,29 @@ if 'notes' not in st.session_state:
 if 'materials_list' not in st.session_state:
   st.session_state['materials_list'] = default_materials_template
 
-# Sekcja 1:
+# Sekcja 1: Dane zlecenia
+st.subheader("1. Informacje o projekcie / zleceniu")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+  project_name = st.text_input("Nazwa zlecenia / Obiekt", value=st.session_state['project_name'])
+  client_name = st.text_input("Inwestor / Klient", value=st.session_state['client_name'])
+
+with col2:
+  order_date = st.date_input("Data zestawienia", value=st.session_state['order_date'])
+
+with col3:
+  notes = st.text_area("Uwagi do zamówienia", value=st.session_state['notes'], height=68)
+
+st.divider()
+
+# Sekcja 2: Tabela materiałów
+st.subheader("2. Tabela materiałów, zabezpieczeń i aparatury")
+st.markdown("Wybierz producenta, kategorię obwodu, wpisz nazwę, symbol katalogowy oraz uwagi.")
+
+df_materials = pd.DataFrame(st.session_state['materials_list'])
+if 'Producent' not in df_materials.columns:
+  df_materials['Producent'] = "Schneider Electric"
+if 'Kategoria' not in df_materials.columns:
+  df_materials['Kategoria'] = "Zabezpieczenia"
+if 'Nazwa materiału' not in df_materials
