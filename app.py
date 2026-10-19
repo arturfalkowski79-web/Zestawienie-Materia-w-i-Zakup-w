@@ -304,9 +304,77 @@ if selected_zest_id is not None:
     st.session_state['loaded_zest_id'] = None
     st.rerun()
 
-# Domyślny szablon materiałów z przypisanymi producentami (Schneider, Hager, Eaton)
+# Domyślny szablon materiałów z przypisanymi producentami
 default_materials_template = [
     {"Producent": "Hager", "Kategoria": "Obudowa", "Nazwa materiału": "Rozdzielnica podtynkowa FW424FT (4x24M, drzwi metalowe)", "Symbol katalogowy": "Hager FW424FT", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Główna rozdzielnica wnękowa"},
     {"Producent": "Schneider Electric", "Kategoria": "Ochrona", "Nazwa materiału": "Ochronnik przepięciowy Klasy I+II (B+C)", "Symbol katalogowy": "Schneider PRD1", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Ochrona przepięciowa i piorunowa"},
     {"Producent": "Schneider Electric", "Kategoria": "Zasilanie główne", "Nazwa materiału": "Wyłącznik główny / odłącznik izolacyjny SB340 (3P, 40A)", "Symbol katalogowy": "Schneider SB340", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Główny odłącznik prądu"},
-    {"Producent": "Schneider Electric", "Kategoria": "Pomiar / Kontrola", "Nazwa materiału": "Cyfrowy wskaźnik napięcia 3-fazowy (woltomierz LED)", "Symbol katalogowy": "LED
+    {"Producent": "Schneider Electric", "Kategoria": "Pomiar / Kontrola", "Nazwa materiału": "Cyfrowy wskaźnik napięcia 3-fazowy (woltomierz LED)", "Symbol katalogowy": "LED 3F", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Bieżący podgląd napięcia na fazach"},
+    {"Producent": "Eaton", "Kategoria": "Siła / Ogrzewanie", "Nazwa materiału": "Wyłącznik nadprądowy C20 (3P)", "Symbol katalogowy": "Eaton PLSM-C20/3", "Ilość": 2.0, "Jednostka": "szt.", "Uwagi": "Zasilanie pompy ciepła, gniazdo siłowe garaż"},
+    {"Producent": "Eaton", "Kategoria": "Siła / Kuchnia", "Nazwa materiału": "Wyłącznik nadprądowy B16 (3P)", "Symbol katalogowy": "Eaton PLSM-B16/3", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Płyta indukcyjna"},
+    {"Producent": "Schneider Electric", "Kategoria": "Aparatura RCBO", "Nazwa materiału": "RCBO 1P+N, B16, 30mA, Typ A", "Symbol katalogowy": "Schneider EZ9D15616", "Ilość": 7.0, "Jednostka": "szt.", "Uwagi": "Lodówka, pralka, suszarka, piekarnik, zmywarka, łazienka, altana"},
+    {"Producent": "Eaton", "Kategoria": "Różnicówki główne", "Nazwa materiału": "Wyłącznik różnicowoprądowy (40A, 4P, 30mA, Typ A)", "Symbol katalogowy": "Eaton PFIM-40/4/003-A", "Ilość": 3.0, "Jednostka": "szt.", "Uwagi": "Główne różnicówki dla grup gniazd i oświetlenia"},
+    {"Producent": "Eaton", "Kategoria": "Nadprądowe (Gniazda)", "Nazwa materiału": "Wyłącznik nadprądowy B16 (1P)", "Symbol katalogowy": "Eaton PLSM-B16/1", "Ilość": 12.0, "Jednostka": "szt.", "Uwagi": "Gniazda ogólne, kotłownia, bramy i alarm"},
+    {"Producent": "Eaton", "Kategoria": "Nadprądowe (Światło)", "Nazwa materiału": "Wyłącznik nadprądowy B10 (1P)", "Symbol katalogowy": "Eaton PLSM-B10/1", "Ilość": 12.0, "Jednostka": "szt.", "Uwagi": "Oświetlenie wewnętrzne i zewnętrzne"},
+    {"Producent": "Schneider Electric", "Kategoria": "Akcesoria", "Nazwa materiału": "Szyna grzebieniowa widłowa 3F oraz 1F", "Symbol katalogowy": "Szyna grzebieniowa", "Ilość": 1.0, "Jednostka": "kpl.", "Uwagi": "Do mostkowania aparatów w rzędach"},
+    {"Producent": "Hager", "Kategoria": "Akcesoria", "Nazwa materiału": "Przewód montażowy LgY 10 mm²", "Symbol katalogowy": "LgY 10mm²", "Ilość": 5.0, "Jednostka": "m", "Uwagi": "Żółto-zielony, niebieski, czarny"}
+]
+
+# Stan sesji
+if 'loaded_zest_id' not in st.session_state:
+  st.session_state['loaded_zest_id'] = None
+
+if selected_zest_id != st.session_state['loaded_zest_id']:
+  st.session_state['loaded_zest_id'] = selected_zest_id
+  if selected_zest_id is not None:
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT project_name, client_name, order_date, notes FROM zestawienia WHERE id = ?", (selected_zest_id,))
+    z_data = cursor.fetchone()
+
+    cursor.execute("SELECT producent, kategoria, nazwa_materialu, symbol_katalogowy, ilosc, jednostka, uwagi FROM pozycje_materialowe WHERE zestawienie_id = ?", (selected_zest_id,))
+    p_data = cursor.fetchall()
+    conn.close()
+
+    if z_data:
+      st.session_state['project_name'] = z_data[0]
+      st.session_state['client_name'] = z_data[1]
+      try:
+        st.session_state['order_date'] = datetime.strptime(z_data[2], "%Y-%m-%d").date()
+      except:
+        st.session_state['order_date'] = datetime.now().date()
+      st.session_state['notes'] = z_data[3]
+
+      loaded_mats = []
+      for p in p_data:
+        loaded_mats.append({
+            "Producent": p[0] or "Schneider Electric",
+            "Kategoria": p[1],
+            "Nazwa materiału": p[2],
+            "Symbol katalogowy": p[3],
+            "Ilość": p[4],
+            "Jednostka": p[5],
+            "Uwagi": p[6]
+        })
+      st.session_state['materials_list'] = loaded_mats
+      st.rerun()
+  else:
+    st.session_state['project_name'] = "Instalacja elektryczna - Dom jednorodzinny"
+    st.session_state['client_name'] = "Radek Rutka"
+    st.session_state['order_date'] = datetime.now().date()
+    st.session_state['notes'] = "Zestawienie aparatury modułowej (Schneider, Hager, Eaton)."
+    st.session_state['materials_list'] = default_materials_template
+    st.rerun()
+
+if 'project_name' not in st.session_state:
+  st.session_state['project_name'] = "Instalacja elektryczna - Dom jednorodzinny"
+if 'client_name' not in st.session_state:
+  st.session_state['client_name'] = "Radek Rutka"
+if 'order_date' not in st.session_state:
+  st.session_state['order_date'] = datetime.now().date()
+if 'notes' not in st.session_state:
+  st.session_state['notes'] = "Zestawienie aparatury modułowej (Schneider, Hager, Eaton)."
+if 'materials_list' not in st.session_state:
+  st.session_state['materials_list'] = default_materials_template
+
+# Sekcja 1:
