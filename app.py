@@ -222,4 +222,65 @@ def generate_pdf(client_data, materials_data):
         Paragraph(str(row['Nazwa materiału']), cell_style),
         Paragraph(str(row['Symbol katalogowy']), cell_style),
         Paragraph(f"{row['Ilość']:.2f}", cell_right),
-        Paragraph(str(row['Jednostka']), cell_style
+        Paragraph(str(row['Jednostka']), cell_style),
+        Paragraph(str(row['Uwagi']), cell_style),
+    ])
+
+  materials_table = Table(table_content, colWidths=[0.8 * cm, 2.2 * cm, 2.2 * cm, 3.8 * cm, 2.8 * cm, 1.1 * cm, 1.1 * cm, 3.8 * cm])
+  materials_table.setStyle(TableStyle([
+      ('BACKGROUND', (0, 0), (-1, 0), '#334155'),
+      ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+      ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+      ('TOPPADDING', (0, 0), (-1, -1), 4),
+      ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+      ('GRID', (0, 0), (-1, -1), 0.5, '#cbd5e1'),
+      ('ROWBACKGROUNDS', (0, 1), (-1, -1), ['#ffffff', '#f8fafc']),
+  ]))
+  story.append(materials_table)
+
+  doc.build(story, canvasmaker=NumberedCanvas)
+  buffer.seek(0)
+  return buffer.getvalue()
+
+
+st.title("🛒 Zestawienie Materiałów i Zakupów")
+
+st.sidebar.header("📁 Baza Zestawień")
+
+
+def get_all_zestawienia():
+  conn = sqlite3.connect(DB_NAME)
+  cursor = conn.cursor()
+  cursor.execute("SELECT id, project_name, client_name, order_date FROM zestawienia ORDER BY id DESC")
+  rows = cursor.fetchall()
+  conn.close()
+  return rows
+
+
+zest_list = get_all_zestawienia()
+zest_options = {"Nowe zestawienie / Szablon domyślny": None}
+for z in zest_list:
+  zest_options[f"[{z[0]}] {z[1]} ({z[2]}) - {z[3]}"] = z[0]
+
+selected_zest_label = st.sidebar.selectbox("Wybierz zapisane zestawienie:", list(zest_options.keys()))
+selected_zest_id = zest_options[selected_zest_label]
+
+if selected_zest_id is not None:
+  if st.sidebar.button("🗑️ Usuń to zestawienie z bazy", type="primary", width="stretch"):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM zestawienia WHERE id = ?", (selected_zest_id,))
+    cursor.execute("DELETE FROM pozycje_materialowe WHERE zestawienie_id = ?", (selected_zest_id,))
+    conn.commit()
+    conn.close()
+    st.sidebar.success("Zestawienie zostało usunięte!")
+    st.session_state['loaded_zest_id'] = None
+    st.rerun()
+
+default_materials_template = [
+    {"Producent": "Hager", "Kategoria": "Obudowa", "Nazwa materiału": "Rozdzielnica podtynkowa FW424FT", "Symbol katalogowy": "Hager FW424FT", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Główna rozdzielnica wnękowa"},
+    {"Producent": "Schneider Electric", "Kategoria": "Ochrona", "Nazwa materiału": "Ochronnik przepięciowy Klasy I+II (B+C)", "Symbol katalogowy": "Schneider PRD1", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Ochrona przepięciowa i piorunowa"},
+    {"Producent": "Schneider Electric", "Kategoria": "Zasilanie główne", "Nazwa materiału": "Wyłącznik główny / odłącznik izolacyjny", "Symbol katalogowy": "Schneider SB340", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Główny odłącznik prądu"},
+    {"Producent": "Schneider Electric", "Kategoria": "Pomiar / Kontrola", "Nazwa materiału": "Cyfrowy wskaźnik napięcia 3-fazowy", "Symbol katalogowy": "LED 3F", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Bieżący podgląd napięcia na fazach"},
+    {"Producent": "Eaton", "Kategoria": "Siła / Ogrzewanie", "Nazwa materiału": "Wyłącznik nadprądowy C20 (3P)", "Symbol katalogowy": "Eaton PLSM-C20/3", "Ilość": 2.0, "Jednostka": "szt.", "Uwagi": "Zasilanie pompy ciepła, gniazdo siłowe"},
+    {"Producent": "Eaton", "Kategoria": "Siła / Kuchnia", "Nazwa materiału": "Wyłącznik nadprądowy B16 (3P)", "Symbol katalogowy": "Eaton PLSM-B16/3", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Płyta indukcy
