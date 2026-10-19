@@ -524,4 +524,217 @@ if selected_zest_id != st.session_state['loaded_zest_id']:
     )
     st.session_state['client_name'] = "Radek Rutka"
     st.session_state['order_date'] = datetime.now().date()
-    st.session_
+    st.session_state['notes'] = (
+        "Zestawienie aparatury modułowej (Schneider, Hager, Eaton)."
+    )
+    st.session_state['materials_list'] = default_materials_template
+    st.rerun()
+
+if 'project_name' not in st.session_state:
+  st.session_state['project_name'] = "Instalacja elektryczna - Dom jednorodzinny"
+if 'client_name' not in st.session_state:
+  st.session_state['client_name'] = "Radek Rutka"
+if 'order_date' not in st.session_state:
+  st.session_state['order_date'] = datetime.now().date()
+if 'notes' not in st.session_state:
+  st.session_state['notes'] = (
+      "Zestawienie aparatury modułowej (Schneider, Hager, Eaton)."
+  )
+if 'materials_list' not in st.session_state:
+  st.session_state['materials_list'] = default_materials_template
+
+st.subheader("1. Informacje o projekcie / zleceniu")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+  project_name = st.text_input(
+      "Nazwa zlecenia / Obiekt", value=st.session_state['project_name']
+  )
+  client_name = st.text_input(
+      "Inwestor / Klient", value=st.session_state['client_name']
+  )
+
+with col2:
+  order_date = st.date_input(
+      "Data zestawienia", value=st.session_state['order_date']
+  )
+
+with col3:
+  notes = st.text_area(
+      "Uwagi do zamówienia", value=st.session_state['notes'], height=68
+  )
+
+st.divider()
+
+st.subheader("2. Tabela materiałów, zabezpieczeń i aparatury")
+st.markdown(
+    "Wybierz producenta i wpisz nazwę aparatu – symbol katalogowy dopasuje się"
+    " automatycznie."
+)
+
+df_materials = pd.DataFrame(st.session_state['materials_list'])
+
+if 'Producent' not in df_materials.columns:
+  df_materials['Producent'] = "Schneider Electric"
+if 'Kategoria' not in df_materials.columns:
+  df_materials['Kategoria'] = "Zabezpieczenia"
+if 'Nazwa materiału' not in df_materials.columns:
+  df_materials['Nazwa materiału'] = ""
+if 'Symbol katalogowy' not in df_materials.columns:
+  df_materials['Symbol katalogowy'] = ""
+if 'Ilość' not in df_materials.columns:
+  df_materials['Ilość'] = 1.0
+if 'Jednostka' not in df_materials.columns:
+  df_materials['Jednostka'] = "szt."
+if 'Uwagi' not in df_materials.columns:
+  df_materials['Uwagi'] = ""
+
+edited_df = st.data_editor(
+    df_materials,
+    num_rows="dynamic",
+    width="stretch",
+    column_config={
+        "Producent": st.column_config.SelectboxColumn(
+            "Producent",
+            options=["Schneider Electric", "Hager", "Eaton", "Inny"],
+            required=True,
+            width="medium",
+        ),
+        "Kategoria": st.column_config.TextColumn(
+            "Kategoria / Obwód", required=True, width="medium"
+        ),
+        "Nazwa materiału": st.column_config.TextColumn(
+            "Nazwa / Model elementu", required=True, width="large"
+        ),
+        "Symbol katalogowy": st.column_config.TextColumn(
+            "Symbol katalogowy", required=False, width="medium"
+        ),
+        "Ilość": st.column_config.NumberColumn(
+            "Ilość", min_value=0.0, format="%.2f", step=1.0
+        ),
+        "Jednostka": st.column_config.SelectboxColumn(
+            "Jedn.", options=["szt.", "m", "op.", "kpl."], required=True
+        ),
+        "Uwagi": st.column_config.TextColumn(
+            "Uwagi / Przeznaczenie", required=False, width="large"
+        ),
+    },
+)
+
+for i, row in edited_df.iterrows():
+  if pd.isna(row['Producent']) or row['Producent'] == "":
+    edited_df.at[i, 'Producent'] = "Schneider Electric"
+  if pd.isna(row['Kategoria']) or row['Kategoria'] == "":
+    edited_df.at[i, 'Kategoria'] = "Ogólne"
+  if pd.isna(row['Nazwa materiału']):
+    edited_df.at[i, 'Nazwa materiału'] = ""
+
+  prod = edited_df.at[i, 'Producent']
+  nazwa = edited_df.at[i, 'Nazwa materiału']
+  current_sym = edited_df.at[i, 'Symbol katalogowy']
+
+  if nazwa.strip() != "":
+    suggested_sym = get_catalog_suggestion(prod, nazwa)
+    if suggested_sym and (
+        pd.isna(current_sym)
+        or current_sym.strip() == ""
+        or current_sym.startswith(("Schneider", "Eaton", "Hager"))
+    ):
+      edited_df.at[i, 'Symbol katalogowy'] = suggested_sym
+
+  if pd.isna(row['Ilość']) or row['Ilość'] == "":
+    edited_df.at[i, 'Ilość'] = 1.0
+  if pd.isna(row['Jednostka']) or row['Jednostka'] == "":
+    edited_df.at[i, 'Jednostka'] = "szt."
+  if pd.isna(row['Uwagi']):
+    edited_df.at[i, 'Uwagi'] = ""
+
+st.session_state['materials_list'] = edited_df.to_dict('records')
+
+st.divider()
+
+col_btn1, col_btn2 = st.columns(2)
+
+with col_btn1:
+  if st.button(
+      "💾 Zapisz zestawienie w bazie danych", type="secondary", width="stretch"
+  ):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    if selected_zest_id is not None:
+      cursor.execute(
+          """UPDATE zestawienia SET project_name=?, client_name=?, order_date=?, notes=? WHERE id=?""",
+          (
+              project_name,
+              client_name,
+              order_date.strftime("%Y-%m-%d"),
+              notes,
+              selected_zest_id,
+          ),
+      )
+      cursor.execute(
+          "DELETE FROM pozycje_materialowe WHERE zestawienie_id = ?",
+          (selected_zest_id,),
+      )
+      zest_id = selected_zest_id
+    else:
+      cursor.execute(
+          """INSERT INTO zestawienia (project_name, client_name, order_date, notes) VALUES (?, ?, ?, ?)""",
+          (
+              project_name,
+              client_name,
+              order_date.strftime("%Y-%m-%d"),
+              notes,
+          ),
+      )
+      zest_id = cursor.lastrowid
+
+    for row in st.session_state['materials_list']:
+      if str(row['Nazwa materiału']).strip() != "":
+        cursor.execute(
+            """INSERT INTO pozycje_materialowe (zestawienie_id, producent, kategoria, nazwa_materialu, symbol_katalogowy, ilosc, jednostka, uwagi) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                zest_id,
+                row['Producent'],
+                row['Kategoria'],
+                row['Nazwa materiału'],
+                row['Symbol katalogowy'],
+                float(row['Ilość']),
+                row['Jednostka'],
+                row['Uwagi'],
+            ),
+        )
+
+    conn.commit()
+    conn.close()
+    st.success("Zestawienie materiałowe zostało zapisane w bazie!")
+    st.rerun()
+
+with col_btn2:
+  if st.button(
+      "📄 Generuj zestawienie w formacie PDF", type="primary", width="stretch"
+  ):
+    if edited_df.empty:
+      st.warning(
+          "Dodaj przynajmniej jedną pozycję materiałową przed wygenerowaniem"
+          " PDF."
+      )
+    else:
+      client_data = {
+          "project_name": project_name,
+          "client_name": client_name,
+          "date": order_date,
+          "notes": notes,
+      }
+
+      pdf_bytes = generate_pdf(client_data, st.session_state['materials_list'])
+
+      st.success("Zestawienie PDF zostało wygenerowane pomyślnie!")
+      st.download_button(
+          label="📥 Pobierz listę zakupową (PDF)",
+          data=pdf_bytes,
+          file_name=f"Zestawienie_Materialow_{project_name.replace(' ', '_')}.pdf",
+          mime="application/pdf",
+          width="stretch",
+      )
