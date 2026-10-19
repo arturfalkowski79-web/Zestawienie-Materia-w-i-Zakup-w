@@ -64,7 +64,6 @@ def init_db():
             FOREIGN KEY (zestawienie_id) REFERENCES zestawienia (id) ON DELETE CASCADE
         )
     """)
-  # Bezpieczna aktualizacja struktury bazy, jeśli już istniała
   try:
     cursor.execute("ALTER TABLE pozycje_materialowe ADD COLUMN uwagi TEXT;")
   except sqlite3.OperationalError:
@@ -298,18 +297,18 @@ if selected_zest_id is not None:
     st.session_state['loaded_zest_id'] = None
     st.rerun()
 
-# Domyślny szablon materiałów z zaimportowanego pliku Excel
+# Domyślny szablon materiałów (uwzględniający Schneider, Hager oraz Eaton)
 default_materials_template = [
     {"Kategoria": "Obudowa", "Nazwa materiału": "Rozdzielnica podtynkowa Hager FW424FT (4x24M, drzwi metalowe)", "Symbol katalogowy": "Hager FW424FT", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Główna rozdzielnica wnękowa"},
     {"Kategoria": "Ochrona", "Nazwa materiału": "Ochronnik przepięciowy Klasy I+II (B+C)", "Symbol katalogowy": "Schneider PRD1", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Ochrona przepięciowa i piorunowa"},
     {"Kategoria": "Zasilanie główne", "Nazwa materiału": "Wyłącznik główny / odłącznik izolacyjny SB340 (3P, 40A)", "Symbol katalogowy": "Schneider SB340", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Główny odłącznik prądu"},
     {"Kategoria": "Pomiar / Kontrola", "Nazwa materiału": "Cyfrowy wskaźnik napięcia 3-fazowy (woltomierz LED)", "Symbol katalogowy": "LED 3F", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Bieżący podgląd napięcia na fazach"},
-    {"Kategoria": "Siła / Ogrzewanie", "Nazwa materiału": "Wyłącznik nadprądowy C20 (3P)", "Symbol katalogowy": "Schneider C20 3P", "Ilość": 2.0, "Jednostka": "szt.", "Uwagi": "Zasilanie pompy ciepła, gniazdo siłowe garaż"},
-    {"Kategoria": "Siła / Kuchnia", "Nazwa materiału": "Wyłącznik nadprądowy B16 (3P)", "Symbol katalogowy": "Schneider B16 3P", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Płyta indukcyjna"},
+    {"Kategoria": "Siła / Ogrzewanie", "Nazwa materiału": "Wyłącznik nadprądowy C20 (3P)", "Symbol katalogowy": "Eaton PLSM-C20/3", "Ilość": 2.0, "Jednostka": "szt.", "Uwagi": "Zasilanie pompy ciepła, gniazdo siłowe garaż"},
+    {"Kategoria": "Siła / Kuchnia", "Nazwa materiału": "Wyłącznik nadprądowy B16 (3P)", "Symbol katalogowy": "Eaton PLSM-B16/3", "Ilość": 1.0, "Jednostka": "szt.", "Uwagi": "Płyta indukcyjna"},
     {"Kategoria": "Aparatura RCBO", "Nazwa materiału": "RCBO 1P+N, B16, 30mA, Typ A", "Symbol katalogowy": "Schneider EZ9D15616", "Ilość": 7.0, "Jednostka": "szt.", "Uwagi": "Lodówka, pralka, suszarka, piekarnik, zmywarka, łazienka, altana"},
-    {"Kategoria": "Różnicówki główne", "Nazwa materiału": "Wyłącznik różnicowoprądowy (40A, 4P, 30mA, Typ A)", "Symbol katalogowy": "Schneider CD441J", "Ilość": 3.0, "Jednostka": "szt.", "Uwagi": "Główne różnicówki dla grup gniazd i oświetlenia"},
-    {"Kategoria": "Nadprądowe (Gniazda)", "Nazwa materiału": "Wyłącznik nadprądowy B16 (1P)", "Symbol katalogowy": "Schneider B16 1P", "Ilość": 12.0, "Jednostka": "szt.", "Uwagi": "Gniazda ogólne, kotłownia, bramy i alarm"},
-    {"Kategoria": "Nadprądowe (Światło)", "Nazwa materiału": "Wyłącznik nadprądowy B10 (1P) Easy9", "Symbol katalogowy": "Schneider B10 1P", "Ilość": 12.0, "Jednostka": "szt.", "Uwagi": "Oświetlenie wewnętrzne i zewnętrzne"},
+    {"Kategoria": "Różnicówki główne", "Nazwa materiału": "Wyłącznik różnicowoprądowy (40A, 4P, 30mA, Typ A)", "Symbol katalogowy": "Eaton PFIM-40/4/003-A", "Ilość": 3.0, "Jednostka": "szt.", "Uwagi": "Główne różnicówki dla grup gniazd i oświetlenia"},
+    {"Kategoria": "Nadprądowe (Gniazda)", "Nazwa materiału": "Wyłącznik nadprądowy B16 (1P)", "Symbol katalogowy": "Eaton PLSM-B16/1", "Ilość": 12.0, "Jednostka": "szt.", "Uwagi": "Gniazda ogólne, kotłownia, bramy i alarm"},
+    {"Kategoria": "Nadprądowe (Światło)", "Nazwa materiału": "Wyłącznik nadprądowy B10 (1P)", "Symbol katalogowy": "Eaton PLSM-B10/1", "Ilość": 12.0, "Jednostka": "szt.", "Uwagi": "Oświetlenie wewnętrzne i zewnętrzne"},
     {"Kategoria": "Akcesoria", "Nazwa materiału": "Szyna grzebieniowa widłowa 3F oraz 1F", "Symbol katalogowy": "Szyna grzebieniowa", "Ilość": 1.0, "Jednostka": "kpl.", "Uwagi": "Do mostkowania aparatów w rzędach"},
     {"Kategoria": "Akcesoria", "Nazwa materiału": "Przewód montażowy LgY 10 mm²", "Symbol katalogowy": "LgY 10mm²", "Ilość": 5.0, "Jednostka": "m", "Uwagi": "Żółto-zielony, niebieski, czarny"}
 ]
@@ -355,7 +354,7 @@ if selected_zest_id != st.session_state['loaded_zest_id']:
     st.session_state['project_name'] = "Instalacja elektryczna - Dom jednorodzinny"
     st.session_state['client_name'] = "Radek Rutka"
     st.session_state['order_date'] = datetime.now().date()
-    st.session_state['notes'] = "Kompletne zestawienie aparatury modułowej (Schneider Electric / Hager)."
+    st.session_state['notes'] = "Zestawienie aparatury modułowej (Schneider, Hager, Eaton)."
     st.session_state['materials_list'] = default_materials_template
     st.rerun()
 
@@ -366,7 +365,7 @@ if 'client_name' not in st.session_state:
 if 'order_date' not in st.session_state:
   st.session_state['order_date'] = datetime.now().date()
 if 'notes' not in st.session_state:
-  st.session_state['notes'] = "Kompletne zestawienie aparatury modułowej (Schneider Electric / Hager)."
+  st.session_state['notes'] = "Zestawienie aparatury modułowej (Schneider, Hager, Eaton)."
 if 'materials_list' not in st.session_state:
   st.session_state['materials_list'] = default_materials_template
 
